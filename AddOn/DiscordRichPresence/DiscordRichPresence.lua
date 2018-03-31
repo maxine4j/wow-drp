@@ -68,10 +68,12 @@ local function UpdateData()
     C_Timer.After(5, function()
         -- gather data
         local zone = GetZoneText()
+        local minimapZone = GetMinimapZoneText()
         local realm = GetRealmName()
         local name = UnitName("player")
         local _, _, class = UnitClass("player")
         local _, race = UnitRace("player")
+        local level = UnitLevel("player")
         SetMapToCurrentZone()
         local continent = GetCurrentMapContinent()
         local groupSize = GetNumGroupMembers()
@@ -86,7 +88,9 @@ local function UpdateData()
         .. GetCurrentMapAreaID() .. "|"
         .. class .. "|"
         .. race .. "|"
-        .. continent
+        .. continent .. "|"
+        .. minimapZone .. "|"
+        .. level
         EncodeMessage(msg)
     end)
 end

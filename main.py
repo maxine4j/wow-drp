@@ -88,6 +88,24 @@ city_images = {
     1014: "dalaran_legion",
 }
 
+classhall_images = {
+    "Trueshot Lodge": "ch_hunter",
+    "Acherus: The Ebon Hold": "ch_deathknight",
+    "The Fel Hammer": "ch_demonhunter",
+    "The Dreamgrove": "ch_druid",
+    "Hall of the Guardian": "ch_mage",
+    "The Wandering Isle": "ch_monk",
+    "Light's Hope Chapel": "ch_paladin",
+    "Netherlight Temple": "ch_priest",
+    "The Maelstrom": "ch_shaman",
+    "Dreadscar Rift": "ch_warlock",
+    "Skyhold": "ch_warrior",
+    # mini map texts
+    "The Hall of Shadows": "ch_rogue",
+    "Uncrowned Vault": "ch_rogue",
+    "Den of Thieves": "ch_rogue",
+}
+
 # reads message character by character using all 3 color channels
 def parse_pixels(pixels):
     msg = ""
@@ -130,6 +148,8 @@ def parse_msg(msg):
         "classID": int(ms[6]),
         "race": ms[7],
         "continentID": int(ms[8]),
+        "minimapZone": ms[9],
+        "level": int(ms[10]),
     }
 
 def format_state(data):
@@ -143,16 +163,34 @@ def format_details(data):
     return "%s - %s" % (data["name"], data["realm"])
 
 def format_large_text(data):
+    try:  # check for rogue class hall
+        if data["classID"] == 4 and data["level"] > 97:
+            x = classhall_images[data["minimapZone"]]
+            return "The Hall of Shadows"
+    except:
+        pass
     return data["zone"]
 
 def format_large_image(data):
-    try:
+    try:  # check for rogue class hall
+        if data["classID"] == 4 and data["level"] > 97:
+            return classhall_images[data["minimapZone"]]
+    except:
+        pass
+    try:  # check for other class halls
+        if data["level"] > 97:
+            return classhall_images[data["zone"]]
+    except:
+        pass
+    try:  # check for cities
         return city_images[data["mapID"]]
     except:
-        return continent_images[data["continentID"]]
+        pass
+    # default to continent
+    return continent_images[data["continentID"]]
 
 def format_small_text(data):
-    return "%s %s" % (data["race"], class_names[data["classID"]])
+    return "%d %s %s" % (data["level"], data["race"], class_names[data["classID"]])
 
 def format_small_image(data):
     try:
