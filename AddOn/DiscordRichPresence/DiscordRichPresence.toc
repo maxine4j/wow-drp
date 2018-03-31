@@ -1,0 +1,7 @@
+## Interface: 70300
+## Title: Discord Rich Presence
+## Version: v1.0.0
+## Author: Arwic@Frostmourne-US
+## Notes: Data gatherer for discord rich presence
+
+DiscordRichPresence.lua
