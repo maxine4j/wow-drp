@@ -130,13 +130,12 @@ local function UpdateStatus(s)
             SetStatus(format("In Battleground: %s (%s v %s)", instName, score1, score2))
             return
         elseif instanceType == "arena" then
-            local bfStatus, mapName, _, _, _, teamSize, registeredMatch = GetBattlefieldStatus(index);
+            local bfStatus, mapName, _, _, _, teamSize = GetBattlefieldStatus(1)
+            if bfStatus ~= "active" then
+                bfStatus, mapName, _, _, _, teamSize = GetBattlefieldStatus(2)
+            end
             if bfStatus == "active" then
-                local prefix = ""
-                if registeredMatch == 1 then
-                    prefix = "Rated "
-                end
-                SetStatus(format("In %sArena: %dv%d %s", prefix, teamSize, teamSize, mapName))
+                SetStatus(format("In Arena: %dv%d %s", teamSize, teamSize, mapName))
                 return
             end
         elseif instanceType == "party" then
