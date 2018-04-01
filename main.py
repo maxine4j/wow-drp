@@ -1,6 +1,7 @@
 from PIL import ImageGrab
 import pypresence
 import time
+import logging
 
 # config
 discord_client_id = '429296102727221258'  # Put your Client ID here
@@ -91,7 +92,7 @@ city_images = {
 classhall_images = {
     "Trueshot Lodge": "ch_hunter",
     "Acherus: The Ebon Hold": "ch_deathknight",
-    "The Fel Hammer": "ch_demonhunter",
+    "Mardum, the Shattered Abyss": "ch_demonhunter",
     "The Dreamgrove": "ch_druid",
     "Hall of the Guardian": "ch_mage",
     "The Wandering Isle": "ch_monk",
@@ -150,14 +151,12 @@ def parse_msg(msg):
         "continentID": int(ms[8]),
         "minimapZone": ms[9],
         "level": int(ms[10]),
+        "status": ms[11],
+        "queueStarted": int(float(ms[12])),
     }
 
 def format_state(data):
-    if data["inRaidGroup"]:
-        return "In Raid Group"
-    elif data["groupSize"] > 0:
-        return "In Party"
-    return "Solo"
+    return data["status"]
 
 def format_details(data):
     return "%s - %s" % (data["name"], data["realm"])
@@ -198,23 +197,48 @@ def format_small_image(data):
     except:
         return "icon_full"
 
+def format_start(data):
+    if data["queueStarted"] != 0:
+        return data["queueStarted"]
+    return int(time.time())
+
+def format_party_size(data):
+    return None
+    if data["groupSize"] == 0:
+        return None
+    return data["groupSize"]
+
+def format_party_max(data):
+    return None
+    if data["groupSize"] == 0:
+        return None
+    if data["inRaidGroup"]:
+        return 20
+    return 5
+
 def start_drp():
     rpc = pypresence.client(discord_client_id)
     rpc.start()
     last_msg = ""
     while True:  # The presence will stay on as long as the program is running
-        msg = get_msg()
-        if msg and last_msg != msg:
-            print("Raw Msg: " + msg)
-            data = parse_msg(msg)
-            rpc.set_activity(state=format_state(data),
-                             details=format_details(data),
-                             start=int(time.time()),
-                             large_image=format_large_image(data),
-                             large_text=format_large_text(data),
-                             small_image=format_small_image(data),
-                             small_text=format_small_text(data))
-            last_msg = msg
+        try:
+            msg = get_msg()
+            if msg and last_msg != msg:
+                print("Raw Msg: " + msg)
+                data = parse_msg(msg)
+                rpc.set_activity(state=format_state(data),
+                                 details=format_details(data),
+                                 start=format_start(data),
+                                 large_image=format_large_image(data),
+                                 large_text=format_large_text(data),
+                                 small_image=format_small_image(data),
+                                 small_text=format_small_text(data),
+                                 party_size=format_party_size(data),
+                                 party_max=format_party_max(data))
+                last_msg = msg
+        except Exception as e:
+            logging.exception("Exception in Main Loop")
+            print("Exception: " + str(e))
         time.sleep(1)
 
 start_drp()

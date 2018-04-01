@@ -195,7 +195,7 @@ class client:
         sent = self.send_data(1, payload)
         return self.loop.run_until_complete(self.read_output())
 
-    def set_activity(self,pid=os.getpid(),state=None,details=None,start=None,end=None,large_image=None,large_text=None,small_image=None,small_text=None,party_id=None,party_size=None,join=None,spectate=None,match=None,instance=True):
+    def set_activity(self,pid=os.getpid(),state=None,details=None,start=None,end=None,large_image=None,large_text=None,small_image=None,small_text=None,party_id=None,party_size=None,party_max=None,match=None,spectate=None,join=None,instance=True):
         current_time = time.time()
         payload = {
             "cmd": "SET_ACTIVITY",
@@ -216,7 +216,10 @@ class client:
                     },
                     "party": {
                         "id": party_id,
-                        "size": party_size
+                        "size": [
+                            party_size,
+                            party_max
+                        ],
                     },
                     "secrets": {
                         "join": join,
@@ -246,7 +249,7 @@ class client:
             del payload["args"]["activity"]["assets"]["small_text"]
         if party_id is None:
             del payload["args"]["activity"]["party"]["id"]
-        if party_size is None:
+        if party_size is None or party_max is None:
             del payload["args"]["activity"]["party"]["size"]
         if join is None:
             del payload["args"]["activity"]["secrets"]["join"]

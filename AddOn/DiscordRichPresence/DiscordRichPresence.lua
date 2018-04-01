@@ -4,6 +4,8 @@ local events = {}
 local msgHeader = "ARW"
 local msgFrameCount = floor(maxMsgLen / 3)
 local maxMsgLen = msgFrameCount * 3
+local status = "In Town"
+local queueStarted = 0
 
 local function Init()
     if not ARWIC_DRP_parent then
@@ -78,6 +80,8 @@ local function UpdateData()
         local continent = GetCurrentMapContinent()
         local groupSize = GetNumGroupMembers()
         local inRaidGroup = 0
+        local isAway = UnitIsAFK("player")
+        local inTown = IsResting()
         if IsInRaid() then inRaidGroup = 1 end
         -- data split by |
         local msg = name .. "|"
@@ -90,9 +94,143 @@ local function UpdateData()
         .. race .. "|"
         .. continent .. "|"
         .. minimapZone .. "|"
-        .. level
+        .. level .. "|"
+        .. status .. "|"
+        .. queueStarted
         EncodeMessage(msg)
     end)
+end
+
+local function UpdateStatus(s)
+    local function SetStatus(s)
+        if UnitIsAFK("player") then
+            s = "<Away> " .. s
+        end
+        status = s
+        UpdateData()
+    end
+    -- override
+    if s then
+        SetStatus(s)
+        return
+    end
+    -- Forming group
+
+    -- Instance status
+    local inInstance, instanceType = IsInInstance()
+    if inInstance then
+        if instanceType == "pvp" then
+            local mapName = "?"
+            local bfIndex = 0
+            local bfStatus1, mapName1 = GetBattlefieldStatus(1)
+            local bfStatus2, mapName2 = GetBattlefieldStatus(2)
+            if bfStatus1 == "active" then
+                bfIndex = 1
+                mapName = mapName1
+            elseif bfStatus2 == "active" then
+                bfIndex = 2
+                mapName = mapName2
+            end
+            if bfIndex ~= 0 then
+                local faction = UnitFactionGroup("player")
+                local _, _, _, scoreAlli = GetWorldStateUIInfo(1)
+                local _, _, _, scoreHorde = GetWorldStateUIInfo(2)
+                local score1 = scoreAlli
+                local score2 = scoreHorde
+                if faction == "Horde" then
+                    score1 = scoreHorde
+                    score2 = scoreAlli
+                end
+                SetStatus(format("In Battleground: %s (%s v %s)", mapName, score1, score2))
+                return
+            end
+        elseif instanceType == "arena" then
+            local bfStatus, mapName, _, _, _, teamSize, registeredMatch = GetBattlefieldStatus(index);
+            if bfStatus == "active" then
+                local prefix = ""
+                if registeredMatch == 1 then
+                    prefix = "Rated "
+                end
+                SetStatus(format("In %sArena: %dv%d %s", prefix, teamSize, teamSize, mapName))
+                return
+            end
+        elseif instanceType == "party" then
+            SetStatus("In Dungeon")
+            return
+        elseif instanceType == "raid" then
+            SetStatus("In Raid")
+            return
+        elseif instanceType == nil then
+            SetStatus("In Instance")
+            return
+        end
+    end
+    -- LFR state
+    local hasData, leaderNeeds, tankNeeds, healerNeeds, dpsNeeds,
+    totalTanks, totalHealers, totalDPS, _, _,
+    instanceName, averageWait, tankWait, healerWait, damageWait,
+    myWait, queuedTime, _ = GetLFGQueueStats(LE_LFG_CATEGORY_RF)
+    if hasData then
+        queueStarted = time() - (GetTime() - queuedTime)
+        SetStatus(format("In Queue: %s (%d/%d/%d)",
+            instanceName, totalTanks - tankNeeds, totalHealers - healerNeeds, totalDPS - dpsNeeds))
+        return
+    end
+    -- LFD state
+    local hasData, leaderNeeds, tankNeeds, healerNeeds, dpsNeeds,
+    totalTanks, totalHealers, totalDPS, _, _,
+    instanceName, averageWait, tankWait, healerWait, damageWait,
+    myWait, queuedTime, _ = GetLFGQueueStats(LE_LFG_CATEGORY_LFD)
+    if hasData then
+        queueStarted = time() - (GetTime() - queuedTime)
+        SetStatus(format("In Queue: %s (%d/%d/%d)",
+            instanceName, totalTanks - tankNeeds, totalHealers - healerNeeds, totalDPS - dpsNeeds))
+        return
+    end
+    -- bg status
+    local timeInQueue1 = GetBattlefieldTimeWaited(1)
+    local timeInQueue2 = GetBattlefieldTimeWaited(2)
+    local bfStatus1, mapName1 = GetBattlefieldStatus(1)
+    local bfStatus2, mapName2 = GetBattlefieldStatus(2)
+    --[[-- random bg
+    if mapName1 == "Random Battleground" then
+        queueStarted = time() - timeInQueue1
+        SetStatus(format("In Queue: %s", mapName1))
+        return]]--
+    -- 2 bgs
+    if bfStatus1 == "queued" and bfStatus2 == "queued" then
+        local longestTime = timeInQueue1
+        if timeInQueue2 > timeInQueue1 then
+            longestTime = timeInQueue2
+        end
+        if longestTime < 5 then
+            queueStarted = time() - longestTime
+        end
+        SetStatus(format("In Queue: %s and %s", mapName1, mapName2))
+        return
+    -- 1 bg in slot 1
+    elseif bfStatus1 == "queued" and bfStatus2 == "none" then
+        if timeInQueue1 < 5 then
+            queueStarted = time() - timeInQueue1
+        end
+        SetStatus(format("In Queue: %s", mapName1))
+        return
+    -- 1 bg in slot 2
+    elseif bfStatus1 == "none" and bfStatus2 == "none" then
+        if timeInQueue2 < 5 then
+            queueStarted = time() - timeInQueue2
+        end
+        SetStatus(format("In Queue: %s", mapName2))
+        return
+    end
+    -- resting
+    if IsResting() then
+        SetStatus("In Town")
+        return
+    end
+
+    -- default
+    SetStatus("In World")
 end
 
 function events:PLAYER_ENTERING_WORLD(...)
@@ -101,6 +239,43 @@ end
 
 function events:ZONE_CHANGED_NEW_AREA(...)
     UpdateData()
+end
+
+function events:SUPER_TRACKED_QUEST_CHANGED(...)
+    UpdateStatus("World Questing")
+end
+
+function events:PLAYER_FLAGS_CHANGED(...)
+    UpdateStatus()
+end
+
+function events:BN_INFO_CHANGED(...)
+    UpdateStatus()
+end
+
+function events:PLAYER_STARTED_MOVING(...)
+    UpdateStatus()
+end
+
+function events:LFG_UPDATE(...)
+    UpdateStatus()
+end
+
+function events:LFG_QUEUE_STATUS_UPDATE(...)
+    UpdateStatus()
+end
+
+function events:PLAYER_UPDATE_RESTING(...)
+    UpdateStatus()
+end
+
+function events:LFG_LIST_APPLICANT_LIST_UPDATED(...)
+    UpdateStatus()
+end
+
+function events:UPDATE_BATTLEFIELD_STATUS(...)
+    print("UPDATE_BATTLEFIELD_STATUS")
+    UpdateStatus()
 end
 
 local function RegisterEvents()
@@ -115,3 +290,10 @@ local function RegisterEvents()
 end
 
 RegisterEvents()
+
+SLASH_DRP1 = "/drp"
+SlashCmdList["DRP"] = function(msg, editbox)
+    status = msg
+    UpdateData()
+    print("DRP: Updated Status: " .. msg)
+end
