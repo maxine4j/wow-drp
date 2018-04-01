@@ -3,109 +3,14 @@ import pypresence
 import time
 import logging
 
+from data import large_image_instanceMapID, name_classID, \
+    large_image_continentID, large_image_mapID, large_image_zone, \
+    small_image_classID
+
 # config
 discord_client_id = '429296102727221258'  # Put your Client ID here
 msg_header = "ARW"
 max_msg_len = 900
-
-# data
-class_names = {
-    0: "None",
-    1: "Warrior",
-    2: "Paladin",
-    3: "Hunter",
-    4: "Rogue",
-    5: "Priest",
-    6: "Death Knight",
-    7: "Shaman",
-    8: "Mage",
-    9: "Warlock",
-    10: "Monk",
-    11: "Druid",
-    12: "Demon Hunter",
-}
-
-class_images = {
-    0: "icon_full",
-    1: "class_warrior",
-    2: "class_paladin",
-    3: "class_hunter",
-    4: "class_rogue",
-    5: "class_priest",
-    6: "class_deathknight",
-    7: "class_shaman",
-    8: "class_mage",
-    9: "class_warlock",
-    10: "class_monk",
-    11: "class_druid",
-    12: "class_demonhunter",
-}
-
-continent_names = {
-    -1: "Unknown",
-    0: "Azeroth",
-    1: "Kalimdor",
-    2: "Eastern Kingdoms",
-    3: "Outland",
-    4: "Northrend",
-    5: "Maelstrom",
-    6: "Pandaria",
-    7: "Draenor",
-    8: "Broken Isles",
-    9: "Argus",
-}
-
-continent_images = {
-    -1: "default",
-    0: "default",
-    1: "kalimdor",
-    2: "easternkingdoms",
-    3: "outland",
-    4: "northrend",
-    5: "maelstrom",
-    6: "pandaria",
-    7: "draenor",
-    8: "brokenisles",
-    9: "argus",
-}
-
-city_images = {
-    301: "stormwind",
-    321: "orgrimmar",
-    341: "ironforge",
-    362: "thunderbluff",
-    381: "darnassus",
-    382: "undercity",
-    471: "exodar",
-    480: "silvermoon",
-    481: "shattrath",
-    504: "dalaran",
-    903: "shrineoftwomoons",
-    905: "shrineofsevenstars",
-    971: "garrison_alliance",
-    976: "garrison_horde",
-    1009: "stormshield",
-    1011: "warspear",
-    1014: "dalaran_legion",
-}
-
-classhall_images = {
-    "Trueshot Lodge": "ch_hunter",
-    "Acherus: The Ebon Hold": "ch_deathknight",
-    "Mardum, the Shattered Abyss": "ch_demonhunter",
-    "The Dreamgrove": "ch_druid",
-    "Hall of the Guardian": "ch_mage",
-    "The Wandering Isle": "ch_monk",
-    "Light's Hope Chapel": "ch_paladin",
-    "Netherlight Temple": "ch_priest",
-    "The Maelstrom": "ch_shaman",
-    "Dreadscar Rift": "ch_warlock",
-    "Skyhold": "ch_warrior",
-    # mini map texts
-    "The Hall of Shadows": "ch_rogue",
-    "Uncrowned Vault": "ch_rogue",
-    "Den of Thieves": "ch_rogue",
-}
 
 # reads message character by character using all 3 color channels
 def parse_pixels(pixels):
@@ -153,6 +58,7 @@ def parse_msg(msg):
         "level": int(ms[10]),
         "status": ms[11],
         "queueStarted": int(float(ms[12])),
+        "instanceMapID": int(ms[13]),
     }
 
 def format_state(data):
@@ -164,7 +70,7 @@ def format_details(data):
 def format_large_text(data):
     try:  # check for rogue class hall
         if data["classID"] == 4 and data["level"] > 97:
-            x = classhall_images[data["minimapZone"]]
+            x = large_image_zone[data["minimapZone"]]
             return "The Hall of Shadows"
     except:
         pass
@@ -173,27 +79,31 @@ def format_large_text(data):
 def format_large_image(data):
     try:  # check for rogue class hall
         if data["classID"] == 4 and data["level"] > 97:
-            return classhall_images[data["minimapZone"]]
+            return large_image_zone[data["minimapZone"]]
     except:
         pass
     try:  # check for other class halls
         if data["level"] > 97:
-            return classhall_images[data["zone"]]
+            return large_image_zone[data["zone"]]
+    except:
+        pass
+    try:  # check for dungeons and raids
+        return large_image_instanceMapID[data["instanceMapID"]]
     except:
         pass
     try:  # check for cities
-        return city_images[data["mapID"]]
+        return large_image_mapID[data["mapID"]]
     except:
         pass
     # default to continent
-    return continent_images[data["continentID"]]
+    return large_image_continentID[data["continentID"]]
 
 def format_small_text(data):
-    return "%d %s %s" % (data["level"], data["race"], class_names[data["classID"]])
+    return "%d %s %s" % (data["level"], data["race"], name_classID[data["classID"]])
 
 def format_small_image(data):
     try:
-        return class_images[data["classID"]]
+        return small_image_classID[data["classID"]]
     except:
         return "icon_full"
 
@@ -204,17 +114,17 @@ def format_start(data):
 
 def format_party_size(data):
     return None
-    if data["groupSize"] == 0:
-        return None
-    return data["groupSize"]
+    #if data["groupSize"] == 0:
+    #    return None
+    #return data["groupSize"]
 
 def format_party_max(data):
     return None
-    if data["groupSize"] == 0:
-        return None
-    if data["inRaidGroup"]:
-        return 20
-    return 5
+    #if data["groupSize"] == 0:
+    #    return None
+    #if data["inRaidGroup"]:
+    #    return 20
+    #return 5
 
 def start_drp():
     rpc = pypresence.client(discord_client_id)
