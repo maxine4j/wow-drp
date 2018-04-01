@@ -104,6 +104,9 @@ local function UpdateStatus(s)
         status = s
         UpdateData()
     end
+    local function SetQueueStarted(t)
+        queueStarted = t
+    end
 
     -- override
     if s then
@@ -134,10 +137,8 @@ local function UpdateStatus(s)
             if bfStatus ~= "active" then
                 bfStatus, mapName, _, _, _, teamSize = GetBattlefieldStatus(2)
             end
-            if bfStatus == "active" then
-                SetStatus(format("In Arena: %dv%d %s", teamSize, teamSize, mapName))
-                return
-            end
+            SetStatus(format("In Arena: %dv%d %s", teamSize, teamSize, mapName))
+            return
         elseif instanceType == "party" then
             SetStatus(format("In Dungeon: %s (%s)", instName, instDifficultyName))
             return
@@ -156,7 +157,7 @@ local function UpdateStatus(s)
     instanceName, averageWait, tankWait, healerWait, damageWait,
     myWait, queuedTime, _ = GetLFGQueueStats(LE_LFG_CATEGORY_RF)
     if hasData then
-        queueStarted = time() - (GetTime() - queuedTime)
+        SetQueueStarted(time() - (GetTime() - queuedTime))
         SetStatus(format("In Queue: %s (%d/2, %d/5, %d/18)",
             instanceName, totalTanks - tankNeeds, totalHealers - healerNeeds, totalDPS - dpsNeeds))
         return
@@ -168,7 +169,7 @@ local function UpdateStatus(s)
     instanceName, averageWait, tankWait, healerWait, damageWait,
     myWait, queuedTime, _ = GetLFGQueueStats(LE_LFG_CATEGORY_LFD)
     if hasData then
-        queueStarted = time() - (GetTime() - queuedTime)
+        SetQueueStarted(time() - (GetTime() - queuedTime))
         SetStatus(format("In Queue: %s (%d/1, %d/1, %d/3)",
             instanceName, totalTanks - tankNeeds, totalHealers - healerNeeds, totalDPS - dpsNeeds))
         return
@@ -182,14 +183,14 @@ local function UpdateStatus(s)
     -- bg in slot 1 only
     if bfStatus1 == "queued" and bfStatus2 == "none" then
         if timeInQueue1 < 5 then
-            queueStarted = time() - timeInQueue1
+            SetQueueStarted(time() - timeInQueue1)
         end
         SetStatus(format("In Queue: %s", mapName1))
         return
     -- bg in slot 2 only
     elseif bfStatus1 == "none" and bfStatus2 == "queued" then
         if timeInQueue2 < 5 then
-            queueStarted = time() - timeInQueue2
+            SetQueueStarted(time() - timeInQueue2)
         end
         SetStatus(format("In Queue: %s", mapName2))
         return
@@ -200,7 +201,7 @@ local function UpdateStatus(s)
             longestTime = timeInQueue2
         end
         if longestTime < 5 then
-            queueStarted = time() - longestTime
+            SetQueueStarted(time() - longestTime)
         end
         SetStatus(format("In Queue: %s and %s", mapName1, mapName2))
         return
