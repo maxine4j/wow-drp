@@ -188,7 +188,7 @@ local function UpdateStatus(s)
         SetStatus(format("In Queue: %s", mapName1))
         return
     -- bg in slot 2 only
-    elseif bfStatus1 == "none" and bfStatus2 == "none" then
+    elseif bfStatus1 == "none" and bfStatus2 == "queued" then
         if timeInQueue2 < 5 then
             queueStarted = time() - timeInQueue2
         end
@@ -257,7 +257,6 @@ function events:LFG_LIST_APPLICANT_LIST_UPDATED(...)
 end
 
 function events:UPDATE_BATTLEFIELD_STATUS(...)
-    print("UPDATE_BATTLEFIELD_STATUS")
     UpdateStatus()
 end
 

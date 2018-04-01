@@ -3,9 +3,7 @@ import pypresence
 import time
 import logging
 
-from data import large_image_instanceMapID, name_classID, \
-    large_image_continentID, large_image_mapID, large_image_zone, \
-    small_image_classID
+from data import large_image_instanceMapID, name_classID, large_image_mapID, large_image_zone, small_image_classID
 
 # config
 discord_client_id = '429296102727221258'  # Put your Client ID here
@@ -80,23 +78,19 @@ def format_large_image(data):
     try:  # check for rogue class hall
         if data["classID"] == 4 and data["level"] > 97:
             return large_image_zone[data["minimapZone"]]
-    except:
-        pass
+    except: pass
     try:  # check for other class halls
         if data["level"] > 97:
             return large_image_zone[data["zone"]]
-    except:
-        pass
-    try:  # check for dungeons and raids
-        return large_image_instanceMapID[data["instanceMapID"]]
-    except:
-        pass
+    except: pass
     try:  # check for cities
         return large_image_mapID[data["mapID"]]
-    except:
-        pass
+    except: pass
+    try:  # check for dungeons and raids
+        return large_image_instanceMapID[data["instanceMapID"]]
+    except: pass
     # default to continent
-    return large_image_continentID[data["continentID"]]
+    return large_image_instanceMapID[data["instanceMapID"]]
 
 def format_small_text(data):
     return "%d %s %s" % (data["level"], data["race"], name_classID[data["classID"]])

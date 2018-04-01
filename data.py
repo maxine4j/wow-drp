@@ -30,20 +30,6 @@ small_image_classID = {
     12: "class_demonhunter",
 }
 
-large_image_continentID = {
-    -1: "default",
-    0: "default",
-    1: "kalimdor",
-    2: "easternkingdoms",
-    3: "outland",
-    4: "northrend",
-    5: "maelstrom",
-    6: "pandaria",
-    7: "draenor",
-    8: "brokenisles",
-    9: "argus",
-}
-
 large_image_mapID = {
     # cities
     301: "stormwind",
@@ -66,6 +52,23 @@ large_image_mapID = {
 }
 
 large_image_instanceMapID = {
+    # continents
+    0: "easternkingdoms",
+    1: "kalimdor",
+    530: "outlands",
+    571: "northrend",
+    646: "maelstrom",
+    730: "maelstrom",
+    732: "maelstrom",
+    860: "pandaria",
+    870: "pandaria",
+    1064: "pandaria",
+    1116: "draenor",
+    1191: "draenor",
+    1220: "brokenisles",
+    1265: "draenor",
+    1464: "draenor",
+    1669: "argus",
     # arenas
     562: "arena_bladesedge",
     617: "arena_dalaran",
