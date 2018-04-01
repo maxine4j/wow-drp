@@ -66,12 +66,8 @@ def format_details(data):
     return "%s - %s" % (data["name"], data["realm"])
 
 def format_large_text(data):
-    try:  # check for rogue class hall
-        if data["classID"] == 4 and data["level"] > 97:
-            x = large_image_zone[data["minimapZone"]]
-            return "The Hall of Shadows"
-    except:
-        pass
+    if data["classID"] == 4 and data["level"] > 97 and data["minimapZone"] in large_image_zone:
+        return "The Hall of Shadows"
     return data["zone"]
 
 def format_large_image(data):
@@ -89,8 +85,8 @@ def format_large_image(data):
     try:  # check for dungeons and raids
         return large_image_instanceMapID[data["instanceMapID"]]
     except: pass
-    # default to continent
-    return large_image_instanceMapID[data["instanceMapID"]]
+    # default
+    return "cont_azeroth"
 
 def format_small_text(data):
     return "%d %s %s" % (data["level"], data["race"], name_classID[data["classID"]])

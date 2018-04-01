@@ -140,7 +140,7 @@ local function UpdateStatus(s)
                 return
             end
         elseif instanceType == "party" then
-            SetStatus("In Dungeon: %s (%s)", instName, instDifficultyName)
+            SetStatus(format("In Dungeon: %s (%s)", instName, instDifficultyName))
             return
         elseif instanceType == "raid" then
             SetStatus(format("In Raid: %s (%s)", instName, instDifficultyName))
@@ -225,7 +225,7 @@ function events:ZONE_CHANGED_NEW_AREA(...)
 end
 
 function events:SUPER_TRACKED_QUEST_CHANGED(...)
-    UpdateStatus("World Questing")
+    --UpdateStatus("World Questing")
 end
 
 function events:PLAYER_FLAGS_CHANGED(...)
