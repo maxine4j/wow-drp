@@ -4,14 +4,18 @@ local events = {}
 local msgHeader = "ARW"
 local msgFrameCount = floor(maxMsgLen / 3)
 local maxMsgLen = msgFrameCount * 3
-local status = "In Town"
-local queueStarted = 0
+local activityHistory = Stack:Create()
+local lastIsQueue = false
+
+function ARW_dump()
+    activityHistory:list()
+end
 
 local function Init()
     if not ARWIC_DRP_parent then
         -- Create message frames
         local msgFrames = {}
-        parentFrame = CreateFrame("frame", "ARWIC_DRP_parent", UIParent)
+        local parentFrame = CreateFrame("frame", "ARWIC_DRP_parent", UIParent)
         parentFrame:SetFrameStrata("TOOLTIP")
         parentFrame:SetPoint("TOPLEFT", 0, 0)
         parentFrame:SetPoint("RIGHT", UIParent, "RIGHT")
@@ -66,55 +70,44 @@ local function EncodeMessage(msg)
     end
 end
 
-local function UpdateData()
-    Init()
-    C_Timer.After(5, function()
-        -- gather data
-        local _, _, class = UnitClass("player")
-        local _, race = UnitRace("player")
-        SetMapToCurrentZone()
-        local _, _, instDifficultyIndex, instDifficultyName, instMaxPlayers,
-              instDynamicDifficulty, instIsDynamic, instanceMapId, instLfgID = GetInstanceInfo()
-        local inRaidGroup = 0
-        if IsInRaid() then inRaidGroup = 1 end
-        -- data split by |
-        local msg = UnitName("player") .. "|"
-        .. GetRealmName() .. "|"
-        .. GetZoneText() .. "|"
-        .. GetNumGroupMembers() .. "|"
-        .. inRaidGroup .. "|"
-        .. GetCurrentMapAreaID() .. "|"
-        .. class .. "|"
-        .. race .. "|"
-        .. GetCurrentMapContinent() .. "|"
-        .. GetMinimapZoneText() .. "|"
-        .. UnitLevel("player") .. "|"
-        .. status .. "|"
-        .. queueStarted .. "|"
-        .. instanceMapId
-        EncodeMessage(msg)
-    end)
+local function UpdateData(status, timeStarted)
+
 end
 
-local function UpdateStatus(s)
-    local function SetStatus(s)
-        if UnitIsAFK("player") then
-            s = "<Away> " .. s
-        end
-        status = s
-        UpdateData()
-    end
-    local function SetQueueStarted(t)
-        queueStarted = t
-    end
+local function SetStatus(isQueue, status, timeStarted)
+    Init()
 
-    -- override
-    if s then
-        SetStatus(s)
-        return
+    if UnitIsAFK("player") then
+        status = "<Away> " .. status
     end
+    -- basic
+    local _, _, class = UnitClass("player")
+    local _, race = UnitRace("player")
+    -- location
+    local mapAreaID = GetCurrentMapAreaID()
+    local _, _, _, _, _, _, _, instanceMapId = GetInstanceInfo()
+    -- group
+    local inRaidGroup = 0
+    if IsInRaid() then inRaidGroup = 1 end
+    -- status
+    if not status then status = "In Game" end
+    if not timeStarted then timeStarted = -1 end
 
-    -- Forming group
+    local newActivity
+    if not isQueue and lastIsQueue then
+        newActivity = activityHistory:pop()
+    else
+        newActivity = Activity:Create(UnitName("player"), GetRealmName(), class, race, UnitLevel("player"),
+                                        mapAreaID, instanceMapId, GetZoneText(), GetMinimapZoneText(),
+                                        GetNumGroupMembers(), inRaidGroup,
+                                        status, timeStarted)
+    end
+    activityHistory:push(newActivity)
+    EncodeMessage(newActivity:Serialize())
+end
+
+local function UpdateStatus()
+    -- Forming a premade group
 
     -- Instance status
     local inInstance, instanceType = IsInInstance()
@@ -130,23 +123,23 @@ local function UpdateStatus(s)
                 score1 = scoreHorde
                 score2 = scoreAlli
             end
-            SetStatus(format("In Battleground: %s (%s v %s)", instName, score1, score2))
+            SetStatus(false, format("In Battleground: %s (%s v %s)", instName, score1, score2))
             return
         elseif instanceType == "arena" then
             local bfStatus, mapName, _, _, _, teamSize = GetBattlefieldStatus(1)
             if bfStatus ~= "active" then
                 bfStatus, mapName, _, _, _, teamSize = GetBattlefieldStatus(2)
             end
-            SetStatus(format("In Arena: %dv%d %s", teamSize, teamSize, mapName))
+            SetStatus(false, format("In Arena: %dv%d %s", teamSize, teamSize, mapName))
             return
         elseif instanceType == "party" then
-            SetStatus(format("In Dungeon: %s (%s)", instName, instDifficultyName))
+            SetStatus(false, format("In Dungeon: %s (%s)", instName, instDifficultyName))
             return
         elseif instanceType == "raid" then
-            SetStatus(format("In Raid: %s (%s)", instName, instDifficultyName))
+            SetStatus(false, format("In Raid: %s (%s)", instName, instDifficultyName))
             return
         elseif instanceType == nil then
-            SetStatus("In Instance")
+            SetStatus(false, "In Instance")
             return
         end
     end
@@ -157,9 +150,9 @@ local function UpdateStatus(s)
     instanceName, averageWait, tankWait, healerWait, damageWait,
     myWait, queuedTime, _ = GetLFGQueueStats(LE_LFG_CATEGORY_RF)
     if hasData then
-        SetQueueStarted(time() - (GetTime() - queuedTime))
-        SetStatus(format("In Queue: %s (%d/2, %d/5, %d/18)",
-            instanceName, totalTanks - tankNeeds, totalHealers - healerNeeds, totalDPS - dpsNeeds))
+        SetStatus(true, format("In Queue: %s (%d/2, %d/5, %d/18)",
+            instanceName, totalTanks - tankNeeds, totalHealers - healerNeeds, totalDPS - dpsNeeds),
+            time() - (GetTime() - queuedTime))
         return
     end
 
@@ -169,9 +162,9 @@ local function UpdateStatus(s)
     instanceName, averageWait, tankWait, healerWait, damageWait,
     myWait, queuedTime, _ = GetLFGQueueStats(LE_LFG_CATEGORY_LFD)
     if hasData then
-        SetQueueStarted(time() - (GetTime() - queuedTime))
-        SetStatus(format("In Queue: %s (%d/1, %d/1, %d/3)",
-            instanceName, totalTanks - tankNeeds, totalHealers - healerNeeds, totalDPS - dpsNeeds))
+        SetStatus(true, format("In Queue: %s (%d/1, %d/1, %d/3)",
+            instanceName, totalTanks - tankNeeds, totalHealers - healerNeeds, totalDPS - dpsNeeds),
+            time() - (GetTime() - queuedTime))
         return
     end
 
@@ -182,17 +175,11 @@ local function UpdateStatus(s)
     local bfStatus2, mapName2 = GetBattlefieldStatus(2)
     -- bg in slot 1 only
     if bfStatus1 == "queued" and bfStatus2 == "none" then
-        if timeInQueue1 < 5 then
-            SetQueueStarted(time() - timeInQueue1)
-        end
-        SetStatus(format("In Queue: %s", mapName1))
+        SetStatus(true, format("In Queue: %s", mapName1), time() - timeInQueue1)
         return
     -- bg in slot 2 only
     elseif bfStatus1 == "none" and bfStatus2 == "queued" then
-        if timeInQueue2 < 5 then
-            SetQueueStarted(time() - timeInQueue2)
-        end
-        SetStatus(format("In Queue: %s", mapName2))
+        SetStatus(true, format("In Queue: %s", mapName2), time() - timeInQueue2)
         return
     -- 2 bgs in both slots
     elseif bfStatus1 == "queued" and bfStatus2 == "queued" then
@@ -200,20 +187,17 @@ local function UpdateStatus(s)
         if timeInQueue2 > timeInQueue1 then
             longestTime = timeInQueue2
         end
-        if longestTime < 5 then
-            SetQueueStarted(time() - longestTime)
-        end
-        SetStatus(format("In Queue: %s and %s", mapName1, mapName2))
+        SetStatus(true, format("In Queue: %s and %s", mapName1, mapName2), time() - longestTime)
         return
     end
     -- resting
     if IsResting() then
-        SetStatus("In Town")
+        SetStatus(false, "In Town")
         return
     end
 
     -- default
-    SetStatus("In World")
+    SetStatus(false, "In World")
 end
 
 function events:PLAYER_ENTERING_WORLD(...)

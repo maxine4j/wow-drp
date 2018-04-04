@@ -10,6 +10,7 @@ discord_client_id = '429296102727221258'  # Put your Client ID here
 msg_header = "ARW"
 max_msg_len = 900
 
+
 # reads message character by character using all 3 color channels
 def parse_pixels(pixels):
     msg = ""
@@ -27,11 +28,13 @@ def parse_pixels(pixels):
             msg += chr(b)
     return msg
 
+
 # gets pixel data from screenshot
 def read_screen():
     img = ImageGrab.grab(bbox=(0, 0, max_msg_len / 3, 1))
     pixels = list(img.getdata())
     return pixels
+
 
 def get_msg():
     px = read_screen()
@@ -40,40 +43,45 @@ def get_msg():
         return None
     return msg[3:]
 
+
 def parse_msg(msg):
     ms = msg.split("|")
-    return {
-        "name": ms[0],
-        "realm": ms[1],
-        "zone": ms[2],
-        "groupSize": int(ms[3]),
-        "inRaidGroup": bool(int(ms[4])),
-        "mapID": int(ms[5]),
-        "classID": int(ms[6]),
-        "race": ms[7],
-        "continentID": int(ms[8]),
-        "minimapZone": ms[9],
-        "level": int(ms[10]),
-        "status": ms[11],
-        "queueStarted": int(float(ms[12])),
-        "instanceMapID": int(ms[13]),
-    }
+    i = 0
+    data = dict()
+    data["name"] = ms[i]; i+=1
+    data["realm"] = ms[i]; i+=1
+    data["classID"] = int(ms[i]); i+=1
+    data["race"] = ms[i]; i+=1
+    data["level"] = int(ms[i]); i+=1
+    data["mapAreaID"] = int(ms[i]); i+=1
+    data["instanceMapID"] = int(ms[i]); i+=1
+    data["zone"] = ms[i]; i+=1
+    data["miniMapZoneText"] = ms[i]; i+=1
+    data["numGroupMembers"] = ms[i]; i+=1
+    data["inRaidGroup"] = bool(int(ms[i])); i+=1
+    data["status"] = ms[i]; i+=1
+    data["timeStarted"] = int(float(ms[i])); i+=1
+    return data
+
 
 def format_state(data):
     return data["status"]
 
+
 def format_details(data):
     return "%s - %s" % (data["name"], data["realm"])
 
+
 def format_large_text(data):
-    if data["classID"] == 4 and data["level"] > 97 and data["minimapZone"] in large_image_zone:
+    if data["classID"] == 4 and data["level"] > 97 and data["miniMapZoneText"] in large_image_zone:
         return "The Hall of Shadows"
     return data["zone"]
+
 
 def format_large_image(data):
     try:  # check for rogue class hall
         if data["classID"] == 4 and data["level"] > 97:
-            return large_image_zone[data["minimapZone"]]
+            return large_image_zone[data["miniMapZoneText"]]
     except: pass
     try:  # check for other class halls
         if data["level"] > 97:
@@ -88,8 +96,21 @@ def format_large_image(data):
     # default
     return "cont_azeroth"
 
+
 def format_small_text(data):
-    return "%d %s %s" % (data["level"], data["race"], name_classID[data["classID"]])
+    race = data["race"]
+    if race == "NightElf":
+        race = "Night Elf"
+    elif race == "BloodElf":
+        race = "Blood Elf"
+    elif race == "VoidElf":
+        race = "Void Elf"
+    elif race == "LightforgedDraenei":
+        race = "Lightforged Draenei"
+    elif race == "HighmountainTauren":
+        race = "Highmountain Tauren"
+    return "%d %s %s" % (data["level"], race, name_classID[data["classID"]])
+
 
 def format_small_image(data):
     try:
@@ -97,16 +118,19 @@ def format_small_image(data):
     except:
         return "icon_full"
 
+
 def format_start(data):
-    if data["queueStarted"] != 0:
-        return data["queueStarted"]
-    return int(time.time())
+    if data["timeStarted"] != -1:
+        return data["timeStarted"]
+    return None
+
 
 def format_party_size(data):
     return None
     #if data["groupSize"] == 0:
     #    return None
     #return data["groupSize"]
+
 
 def format_party_max(data):
     return None
@@ -115,6 +139,7 @@ def format_party_max(data):
     #if data["inRaidGroup"]:
     #    return 20
     #return 5
+
 
 def start_drp():
     rpc = pypresence.client(discord_client_id)

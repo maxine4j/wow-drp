@@ -78,6 +78,7 @@ large_image_instanceMapID = {
     618: "arena_theringofvalor",
     1134: "arena_thetigerspeak",
     980: "arena_tolviron",
+
     # bgs
     30: "bg_alteracvalley",
     529: "bg_arathibasin",
