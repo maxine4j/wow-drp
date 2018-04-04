@@ -120,9 +120,9 @@ def format_small_image(data):
 
 
 def format_start(data):
-    if data["timeStarted"] != -1:
-        return data["timeStarted"]
     return None
+    #if data["timeStarted"] != -1:
+    #    return data["timeStarted"]
 
 
 def format_party_size(data):
