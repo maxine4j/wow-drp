@@ -102,9 +102,10 @@ local function EncodeMessage(msg)
     end
 end
 
-local function SetStatus(status, timeStarted, queuePlayerCount, queuePlayerMax)
+local function SetStatus(status, groupSize, groupSizeMax, timeStarted)
+    -- init the color bar
     Init()
-
+    -- check if the player is away and prepend away state to status
     if UnitIsAFK("player") then
         status = "<Away> " .. status
     end
@@ -120,53 +121,53 @@ local function SetStatus(status, timeStarted, queuePlayerCount, queuePlayerMax)
     local zoneText = GetZoneText()
     local miniMapZoneText = GetMinimapZoneText()
     -- group
-    local numGroupMembers = 0
-    local maxGroupMembers = 0
-    if IsInGroup() then
-        if difficultyID == 0 then -- if we arnt in an instance get diff id from the portrait setting
-            if IsInRaid() then
-                difficultyID = GetRaidDifficultyID()
-            else
-                difficultyID = GetDungeonDifficultyID()
-            end
-        end
-        maxGroupMembers = size_difficultyID[tostring(difficultyID)]
-        numGroupMembers = GetNumGroupMembers()
-        if timeStarted and timeStarted ~= -2 then
-            numGroupMembers = numGroupMembers + queuePlayerCount
-            maxGroupMembers = queuePlayerMax
-        elseif timeStarted and timeStarted == -2 then -- -2 means premade group finder
-            timeStarted = -1
-            numGroupMembers = queuePlayerCount
-            maxGroupMembers = queuePlayerMax
-        end
-        if not maxGroupMembers then maxGroupMembers = 0 end
-    end
+    if not groupSize then groupSize = 0 end
+    if not groupSizeMax then groupSizeMax = 0 end
     -- status
     if not status then status = "In Game" end
     if not timeStarted then timeStarted = -1 end
     local newActivity = Activity:Create(name, realm, class, race, level,
                                   mapAreaID, instanceMapId, zoneText, miniMapZoneText,
-                                  numGroupMembers, maxGroupMembers, difficultyID,
+                                  groupSize, groupSizeMax, difficultyID,
                                   status, timeStarted)
     EncodeMessage(newActivity:Serialize())
 end
 
 local function UpdateStatus()
     -- Forming a premade group
-    local lfgActive, lfgActivityID, lfgILevel, lfgName,
-        lfgComment, lfgVoiceChat, lfgExpiration, lfgAutoAccept = C_LFGList.GetActiveEntryInfo()
+    local lfgActive, lfgActivityID, lfgILevel, lfgName = C_LFGList.GetActiveEntryInfo()
     if lfgActive then
-        local activityFullName, _, _, _, _, _, _, activityMaxPlayers = C_LFGList.GetActivityInfo(lfgActivityID)
-        SetStatus(format("In Group: %s", activityFullName), -2, GetNumGroupMembers(), activityMaxPlayers)
+        -- get activity info
+        local activityFullName, _, activityCategoryID, _,
+            _, _, _, activityMaxPlayers = C_LFGList.GetActivityInfo(lfgActivityID)
+        local groupSize = GetNumGroupMembers()
+        local groupSizemax = activityMaxPlayers
+        local finalName = activityFullName
+        -- override name and size for specific activities
+        if activityCategoryID == 1 then -- questing
+            finalName = "Questing"
+            groupSizemax = 5
+        elseif activityCategoryID == 6 then -- custom
+            if IsInRaid() then
+                groupSizemax = 40
+            else
+                groupSizemax = 5
+            end
+        elseif activityCategoryID == 9 then -- rbgs
+            groupSizemax = 10 -- might need to change this to 6 in BFA
+        end
+        -- set the status
+        SetStatus(format("In Group: %s", finalName), groupSize, groupSizemax)
         return
     end
 
-    -- Instance status
+    -- In an instance
     local inInstance, instanceType = IsInInstance()
     if inInstance then
-        local instName, _, instDifficultyIndex, instDifficultyName = GetInstanceInfo()
+        -- get instance info
+        local instName, _, _, instDifficultyName, instMaxPlayers = GetInstanceInfo()
         if instanceType == "pvp" then
+            -- get bg scores and order based on faction (us vs them)
             local faction = UnitFactionGroup("player")
             local _, _, _, scoreAlli = GetWorldStateUIInfo(1)
             local _, _, _, scoreHorde = GetWorldStateUIInfo(2)
@@ -176,50 +177,67 @@ local function UpdateStatus()
                 score1 = scoreHorde
                 score2 = scoreAlli
             end
+            -- set the status without group sizes or time
             SetStatus(format("In Battleground: %s (%s v %s)", instName, score1, score2))
             return
         elseif instanceType == "arena" then
+            -- get the arena size
+            -- try slot 1
             local bfStatus, mapName, _, _, _, teamSize = GetBattlefieldStatus(1)
             if bfStatus ~= "active" then
+                -- slot 1 was nil, so lets use slot 2
                 bfStatus, mapName, _, _, _, teamSize = GetBattlefieldStatus(2)
             end
+            -- set the status without group sizes or time
             SetStatus(format("In Arena: %dv%d %s", teamSize, teamSize, mapName))
             return
         elseif instanceType == "party" then
-            SetStatus(format("In Dungeon: %s (%s)", instName, instDifficultyName))
+            -- get group size
+            local groupSize = GetNumGroupMembers()
+            local groupSizeMax = 5
+            -- set the status with group sizes
+            SetStatus(format("In Dungeon: %s (%s)", instName, instDifficultyName), groupSize, groupSizeMax)
             return
         elseif instanceType == "raid" then
-            SetStatus(format("In Raid: %s (%s)", instName, instDifficultyName))
+            -- get group size
+            local groupSize = GetNumGroupMembers()
+            local groupSizeMax = instMaxPlayers
+            -- set the status with group sizes
+            SetStatus(format("In Raid: %s (%s)", instName, instDifficultyName), groupSize, groupSizeMax)
             return
         elseif instanceType == nil then
+            -- default to this is we dont know the instance type
             SetStatus("In Instance")
             return
         end
     end
 
     -- LFR status
-    local hasData, leaderNeeds, tankNeeds, healerNeeds, dpsNeeds,
-    totalTanks, totalHealers, totalDPS, _, _,
-    instanceName, averageWait, tankWait, healerWait, damageWait,
-    myWait, queuedTime, _ = GetLFGQueueStats(LE_LFG_CATEGORY_RF)
+    local hasData, _, tankNeeds, healerNeeds, dpsNeeds, totalTanks, totalHealers, totalDPS, _, _,
+    instanceName, _, _, _, _, _, queuedTime, _ = GetLFGQueueStats(LE_LFG_CATEGORY_RF)
     if hasData then
-        local queueCount = (totalTanks - tankNeeds) + (totalHealers - healerNeeds) + (totalDPS - dpsNeeds)
-        SetStatus(format("In Queue: %s", instanceName),
-            time() - (GetTime() - queuedTime),
-            queueCount, 25)
+        -- get the group size, that is players in group + players in queue
+        --local groupSize = GetNumGroupMembers() + (totalTanks - tankNeeds) + (totalHealers - healerNeeds) + (totalDPS - dpsNeeds)
+        local groupSize = GetNumGroupMembers() -- the players group size when they queued is more useful than the queue progress
+        --local groupSizeMax = 25 -- lfr has initial max of 25
+        local groupSizeMax = 5 -- the players group size when they queued is more useful than the queue progress
+        local timeStarted = time() - (GetTime() - queuedTime)
+        -- set the status with group sizes and time
+        SetStatus(format("In Queue: %s", instanceName), groupSize, groupSizeMax, timeStarted)
         return
     end
 
     -- LFD status
-    local hasData, leaderNeeds, tankNeeds, healerNeeds, dpsNeeds,
-    totalTanks, totalHealers, totalDPS, _, _,
-    instanceName, averageWait, tankWait, healerWait, damageWait,
-    myWait, queuedTime, _ = GetLFGQueueStats(LE_LFG_CATEGORY_LFD)
+    local hasData, _, tankNeeds, healerNeeds, dpsNeeds, totalTanks, totalHealers, totalDPS, _, _,
+    instanceName, _, _, _, _, _, queuedTime, _ = GetLFGQueueStats(LE_LFG_CATEGORY_LFD)
     if hasData then
-        local queueCount = (totalTanks - tankNeeds) + (totalHealers - healerNeeds) + (totalDPS - dpsNeeds)
-        SetStatus(format("In Queue: %s", instanceName),
-            time() - (GetTime() - queuedTime),
-            queueCount, 5)
+        -- get the group size and queued time (size being players in group + players in queue)
+        --local groupSize = GetNumGroupMembers() + (totalTanks - tankNeeds) + (totalHealers - healerNeeds) + (totalDPS - dpsNeeds)
+        local groupSize = GetNumGroupMembers() -- the players group size when they queued is more useful than the queue progress
+        local groupSizeMax = 5
+        local timeStarted = time() - (GetTime() - queuedTime)
+        -- set the status with group sizes and time
+        SetStatus(format("In Queue: %s", instanceName), groupSize, groupSizeMax, timeStarted)
         return
     end
 
@@ -230,22 +248,30 @@ local function UpdateStatus()
     local bfStatus2, mapName2 = GetBattlefieldStatus(2)
     -- bg in slot 1 only
     if bfStatus1 == "queued" and bfStatus2 == "none" then
-        SetStatus(format("In Queue: %s", mapName1),
-            time() - timeInQueue1)
+        -- get the group size and queued time
+        local groupSize = GetNumGroupMembers() -- the players group size when they queued is more useful than the queue progress
+        local groupSizeMax = 5
+        local timeStarted = time() - timeInQueue1
+        SetStatus(format("In Queue: %s", mapName1), groupSize, groupSizeMax, timeStarted)
         return
     -- bg in slot 2 only
     elseif bfStatus1 == "none" and bfStatus2 == "queued" then
-        SetStatus(format("In Queue: %s", mapName2),
-            time() - timeInQueue2)
+        -- get the group size and queued time
+        local groupSize = GetNumGroupMembers() -- the players group size when they queued is more useful than the queue progress
+        local groupSizeMax = 5
+        local timeStarted = time() - timeInQueue2
+        SetStatus(format("In Queue: %s", mapName2), groupSize, groupSizeMax, timeStarted)
         return
     -- 2 bgs in both slots
     elseif bfStatus1 == "queued" and bfStatus2 == "queued" then
-        local longestTime = timeInQueue1
+        -- get the group size and queued time of the longest slot
+        local groupSize = GetNumGroupMembers() -- the players group size when they queued is more useful than the queue progress
+        local groupSizeMax = 5
+        local timeStarted = time() - timeInQueue1
         if timeInQueue2 > timeInQueue1 then
-            longestTime = timeInQueue2
+            timeStarted = time() - timeInQueue2
         end
-        SetStatus(format("In Queue: %s and %s", mapName1, mapName2),
-            time() - longestTime)
+        SetStatus(format("In Queue: %s and %s", mapName1, mapName2), groupSize, groupSizeMax, timeStarted)
         return
     end
     -- resting
@@ -258,51 +284,69 @@ local function UpdateStatus()
     SetStatus("In World")
 end
 
+-- update the status when various events that could modify it fire
+-- when the player logs in
 function events:PLAYER_ENTERING_WORLD(...)
     UpdateStatus()
 end
 
+-- when the player changes zone
 function events:ZONE_CHANGED_NEW_AREA(...)
     UpdateStatus()
 end
 
-function events:SUPER_TRACKED_QUEST_CHANGED(...)
-    --UpdateStatus("World Questing")
-end
-
+-- when the player is updated (away state, etc)
 function events:PLAYER_FLAGS_CHANGED(...)
     UpdateStatus()
 end
 
+-- when the players away state is updated
 function events:BN_INFO_CHANGED(...)
     UpdateStatus()
 end
 
+-- when the player starts to move
 function events:PLAYER_STARTED_MOVING(...)
     UpdateStatus()
 end
 
+-- when the dungeon finder updates
 function events:LFG_UPDATE(...)
     UpdateStatus()
 end
 
+-- when the dungeon finder updates
 function events:LFG_QUEUE_STATUS_UPDATE(...)
     UpdateStatus()
 end
 
+-- when the player starts or stops resting
 function events:PLAYER_UPDATE_RESTING(...)
     UpdateStatus()
 end
 
+-- when the premade group finder updates
 function events:LFG_LIST_APPLICANT_LIST_UPDATED(...)
     UpdateStatus()
 end
 
+-- when bg score or queue updates
 function events:UPDATE_BATTLEFIELD_STATUS(...)
     UpdateStatus()
 end
 
+-- when
 function events:LFG_LIST_APPLICANT_LIST_UPDATED(...)
+    UpdateStatus()
+end
+
+-- when the player signs up to a group, gets accepted, or declined
+function events:LFG_LIST_APPLICATION_STATUS_UPDATED(...)
+    UpdateStatus()
+end
+
+-- when the players group changes
+function events:GROUP_ROSTER_UPDATE(...)
     UpdateStatus()
 end
 
@@ -318,10 +362,3 @@ local function RegisterEvents()
 end
 
 RegisterEvents()
-
-SLASH_DRP1 = "/drp"
-SlashCmdList["DRP"] = function(msg, editbox)
-    status = msg
-    UpdateData()
-    print("DRP: Updated Status: " .. msg)
-end
