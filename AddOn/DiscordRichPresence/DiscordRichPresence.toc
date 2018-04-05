@@ -5,5 +5,4 @@
 ## Notes: Data gatherer for discord rich presence
 
 Activity.lua
-Stack.lua
 DiscordRichPresence.lua

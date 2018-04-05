@@ -4,12 +4,44 @@ local events = {}
 local msgHeader = "ARW"
 local msgFrameCount = floor(maxMsgLen / 3)
 local maxMsgLen = msgFrameCount * 3
-local activityHistory = Stack:Create()
-local lastIsQueue = false
 
-function ARW_dump()
-    activityHistory:list()
-end
+local size_difficultyID = {
+    ["0"] = 0,
+    ["1"] = 5,
+    ["2"] = 5,
+    ["3"] = 10,
+    ["4"] = 25,
+    ["5"] = 10,
+    ["6"] = 25,
+    ["7"] = 25,
+    ["8"] = 5,
+    ["9"] = 40,
+    ["10"] = 0,
+    ["11"] = 3,
+    ["12"] = 3,
+    ["13"] = 0,
+    ["14"] = 30,
+    ["15"] = 30,
+    ["16"] = 20,
+    ["17"] = 30,
+    ["18"] = 0,
+    ["19"] = 0,
+    ["20"] = 3,
+    ["21"] = 0,
+    ["22"] = 0,
+    ["23"] = 5,
+    ["24"] = 5,
+    ["25"] = 0,
+    ["26"] = 0,
+    ["27"] = 0,
+    ["28"] = 0,
+    ["29"] = 0,
+    ["30"] = 0,
+    ["31"] = 0,
+    ["32"] = 0,
+    ["33"] = 5,
+    ["34"] = 0,
+}
 
 local function Init()
     if not ARWIC_DRP_parent then
@@ -70,44 +102,65 @@ local function EncodeMessage(msg)
     end
 end
 
-local function UpdateData(status, timeStarted)
-
-end
-
-local function SetStatus(isQueue, status, timeStarted)
+local function SetStatus(status, timeStarted, queuePlayerCount, queuePlayerMax)
     Init()
 
     if UnitIsAFK("player") then
         status = "<Away> " .. status
     end
     -- basic
+    local name = UnitName("player")
+    local realm = GetRealmName()
+    local level = UnitLevel("player")
     local _, _, class = UnitClass("player")
     local _, race = UnitRace("player")
     -- location
     local mapAreaID = GetCurrentMapAreaID()
-    local _, _, _, _, _, _, _, instanceMapId = GetInstanceInfo()
+    local _, _, difficultyID, _, _, _, _, instanceMapId = GetInstanceInfo()
+    local zoneText = GetZoneText()
+    local miniMapZoneText = GetMinimapZoneText()
     -- group
-    local inRaidGroup = 0
-    if IsInRaid() then inRaidGroup = 1 end
+    local numGroupMembers = 0
+    local maxGroupMembers = 0
+    if IsInGroup() then
+        if difficultyID == 0 then -- if we arnt in an instance get diff id from the portrait setting
+            if IsInRaid() then
+                difficultyID = GetRaidDifficultyID()
+            else
+                difficultyID = GetDungeonDifficultyID()
+            end
+        end
+        maxGroupMembers = size_difficultyID[tostring(difficultyID)]
+        numGroupMembers = GetNumGroupMembers()
+        if timeStarted and timeStarted ~= -2 then
+            numGroupMembers = numGroupMembers + queuePlayerCount
+            maxGroupMembers = queuePlayerMax
+        elseif timeStarted and timeStarted == -2 then -- -2 means premade group finder
+            timeStarted = -1
+            numGroupMembers = queuePlayerCount
+            maxGroupMembers = queuePlayerMax
+        end
+        if not maxGroupMembers then maxGroupMembers = 0 end
+    end
     -- status
     if not status then status = "In Game" end
     if not timeStarted then timeStarted = -1 end
-
-    local newActivity
-    if not isQueue and lastIsQueue then
-        newActivity = activityHistory:pop()
-    else
-        newActivity = Activity:Create(UnitName("player"), GetRealmName(), class, race, UnitLevel("player"),
-                                        mapAreaID, instanceMapId, GetZoneText(), GetMinimapZoneText(),
-                                        GetNumGroupMembers(), inRaidGroup,
-                                        status, timeStarted)
-    end
-    activityHistory:push(newActivity)
+    local newActivity = Activity:Create(name, realm, class, race, level,
+                                  mapAreaID, instanceMapId, zoneText, miniMapZoneText,
+                                  numGroupMembers, maxGroupMembers, difficultyID,
+                                  status, timeStarted)
     EncodeMessage(newActivity:Serialize())
 end
 
 local function UpdateStatus()
     -- Forming a premade group
+    local lfgActive, lfgActivityID, lfgILevel, lfgName,
+        lfgComment, lfgVoiceChat, lfgExpiration, lfgAutoAccept = C_LFGList.GetActiveEntryInfo()
+    if lfgActive then
+        local activityFullName, _, _, _, _, _, _, activityMaxPlayers = C_LFGList.GetActivityInfo(lfgActivityID)
+        SetStatus(format("In Group: %s", activityFullName), -2, GetNumGroupMembers(), activityMaxPlayers)
+        return
+    end
 
     -- Instance status
     local inInstance, instanceType = IsInInstance()
@@ -123,23 +176,23 @@ local function UpdateStatus()
                 score1 = scoreHorde
                 score2 = scoreAlli
             end
-            SetStatus(false, format("In Battleground: %s (%s v %s)", instName, score1, score2))
+            SetStatus(format("In Battleground: %s (%s v %s)", instName, score1, score2))
             return
         elseif instanceType == "arena" then
             local bfStatus, mapName, _, _, _, teamSize = GetBattlefieldStatus(1)
             if bfStatus ~= "active" then
                 bfStatus, mapName, _, _, _, teamSize = GetBattlefieldStatus(2)
             end
-            SetStatus(false, format("In Arena: %dv%d %s", teamSize, teamSize, mapName))
+            SetStatus(format("In Arena: %dv%d %s", teamSize, teamSize, mapName))
             return
         elseif instanceType == "party" then
-            SetStatus(false, format("In Dungeon: %s (%s)", instName, instDifficultyName))
+            SetStatus(format("In Dungeon: %s (%s)", instName, instDifficultyName))
             return
         elseif instanceType == "raid" then
-            SetStatus(false, format("In Raid: %s (%s)", instName, instDifficultyName))
+            SetStatus(format("In Raid: %s (%s)", instName, instDifficultyName))
             return
         elseif instanceType == nil then
-            SetStatus(false, "In Instance")
+            SetStatus("In Instance")
             return
         end
     end
@@ -150,9 +203,10 @@ local function UpdateStatus()
     instanceName, averageWait, tankWait, healerWait, damageWait,
     myWait, queuedTime, _ = GetLFGQueueStats(LE_LFG_CATEGORY_RF)
     if hasData then
-        SetStatus(true, format("In Queue: %s (%d/2, %d/5, %d/18)",
-            instanceName, totalTanks - tankNeeds, totalHealers - healerNeeds, totalDPS - dpsNeeds),
-            time() - (GetTime() - queuedTime))
+        local queueCount = (totalTanks - tankNeeds) + (totalHealers - healerNeeds) + (totalDPS - dpsNeeds)
+        SetStatus(format("In Queue: %s", instanceName),
+            time() - (GetTime() - queuedTime),
+            queueCount, 25)
         return
     end
 
@@ -162,9 +216,10 @@ local function UpdateStatus()
     instanceName, averageWait, tankWait, healerWait, damageWait,
     myWait, queuedTime, _ = GetLFGQueueStats(LE_LFG_CATEGORY_LFD)
     if hasData then
-        SetStatus(true, format("In Queue: %s (%d/1, %d/1, %d/3)",
-            instanceName, totalTanks - tankNeeds, totalHealers - healerNeeds, totalDPS - dpsNeeds),
-            time() - (GetTime() - queuedTime))
+        local queueCount = (totalTanks - tankNeeds) + (totalHealers - healerNeeds) + (totalDPS - dpsNeeds)
+        SetStatus(format("In Queue: %s", instanceName),
+            time() - (GetTime() - queuedTime),
+            queueCount, 5)
         return
     end
 
@@ -175,11 +230,13 @@ local function UpdateStatus()
     local bfStatus2, mapName2 = GetBattlefieldStatus(2)
     -- bg in slot 1 only
     if bfStatus1 == "queued" and bfStatus2 == "none" then
-        SetStatus(true, format("In Queue: %s", mapName1), time() - timeInQueue1)
+        SetStatus(format("In Queue: %s", mapName1),
+            time() - timeInQueue1)
         return
     -- bg in slot 2 only
     elseif bfStatus1 == "none" and bfStatus2 == "queued" then
-        SetStatus(true, format("In Queue: %s", mapName2), time() - timeInQueue2)
+        SetStatus(format("In Queue: %s", mapName2),
+            time() - timeInQueue2)
         return
     -- 2 bgs in both slots
     elseif bfStatus1 == "queued" and bfStatus2 == "queued" then
@@ -187,25 +244,26 @@ local function UpdateStatus()
         if timeInQueue2 > timeInQueue1 then
             longestTime = timeInQueue2
         end
-        SetStatus(true, format("In Queue: %s and %s", mapName1, mapName2), time() - longestTime)
+        SetStatus(format("In Queue: %s and %s", mapName1, mapName2),
+            time() - longestTime)
         return
     end
     -- resting
     if IsResting() then
-        SetStatus(false, "In Town")
+        SetStatus("In Town")
         return
     end
 
     -- default
-    SetStatus(false, "In World")
+    SetStatus("In World")
 end
 
 function events:PLAYER_ENTERING_WORLD(...)
-    UpdateData()
+    UpdateStatus()
 end
 
 function events:ZONE_CHANGED_NEW_AREA(...)
-    UpdateData()
+    UpdateStatus()
 end
 
 function events:SUPER_TRACKED_QUEST_CHANGED(...)
@@ -241,6 +299,10 @@ function events:LFG_LIST_APPLICANT_LIST_UPDATED(...)
 end
 
 function events:UPDATE_BATTLEFIELD_STATUS(...)
+    UpdateStatus()
+end
+
+function events:LFG_LIST_APPLICANT_LIST_UPDATED(...)
     UpdateStatus()
 end
 
