@@ -43,6 +43,39 @@ local size_difficultyID = {
     ["34"] = 0,
 }
 
+local activityShortNames = {
+    -- legion m+
+    ["459"] = "M+ EoA",
+    ["460"] = "M+ DHT",
+    ["461"] = "M+ HoV",
+    ["462"] = "M+ Nelths",
+    ["464"] = "M+ Vault",
+    ["463"] = "M+ BRH",
+    ["465"] = "M+ Maw",
+    ["466"] = "M+ CoS",
+    ["467"] = "M+ Arcway",
+    ["471"] = "M+ Lower",
+    ["473"] = "M+ Upper",
+    ["476"] = "M+ CoEN",
+    ["486"] = "M+ Seat",
+    -- legion raids
+    ["413"] = "N EN",
+    ["414"] = "H EN",
+    ["468"] = "M EN",
+    ["456"] = "N ToV",
+    ["457"] = "H ToV",
+    ["480"] = "M ToV",
+    ["415"] = "N NH",
+    ["416"] = "H NH",
+    ["481"] = "M NH",
+    ["479"] = "N ToS",
+    ["478"] = "H ToS",
+    ["492"] = "M ToS",
+    ["482"] = "N ABT",
+    ["483"] = "H ABT",
+    ["493"] = "M ABT",
+}
+
 local function Init()
     if not ARWIC_DRP_parent then
         -- Create message frames
@@ -140,11 +173,15 @@ local function UpdateStatus()
         -- get activity info
         local activityFullName, _, activityCategoryID, _,
             _, _, _, activityMaxPlayers = C_LFGList.GetActivityInfo(lfgActivityID)
+        -- check if we have a short name for the activity
+        local shortName = activityShortNames[tostring(lfgActivityID)]
         local groupSize = GetNumGroupMembers()
         local groupSizemax = activityMaxPlayers
         local finalName = activityFullName
         -- override name and size for specific activities
-        if activityCategoryID == 1 then -- questing
+        if shortName then -- manual override
+            finalName = shortName
+        elseif activityCategoryID == 1 then -- questing
             finalName = "Questing"
             groupSizemax = 5
         elseif activityCategoryID == 6 then -- custom
