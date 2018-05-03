@@ -147,19 +147,13 @@ def format_start(data):
 
 
 def format_party_size(data):
-    if data["numGroupMembers"] == 0:
+    if data["numGroupMembers"] == 0 or data["maxGroupMembers"] == 0:
         return None
-    return data["numGroupMembers"]
-
-
-def format_party_max(data):
-    if data["maxGroupMembers"] == 0:
-        return None
-    return data["maxGroupMembers"]
+    return [data["numGroupMembers"], data["maxGroupMembers"]]
 
 
 def start_drp():
-    rpc = pypresence.client(discord_client_id)
+    rpc = pypresence.Client(discord_client_id)
     rpc.start()
     last_msg = ""
     while True:  # The presence will stay on as long as the program is running
@@ -176,8 +170,7 @@ def start_drp():
                                  large_text=format_large_text(data),
                                  small_image=format_small_image(data),
                                  small_text=format_small_text(data),
-                                 party_size=format_party_size(data),
-                                 party_max=format_party_max(data))
+                                 party_size=format_party_size(data))
                 logger.info("Successfully updated discord activity")
         except Exception:
             logger.exception("Exception in Main Loop")
