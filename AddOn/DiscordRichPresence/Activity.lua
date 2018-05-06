@@ -1,7 +1,7 @@
 -- GLOBAL
 Activity = {}
 
-function Activity:Create(name, realm, class, race, level,
+function Activity:Create(name, realm, class, race, level, itemLevel,
                         mapAreaID, instanceMapID, zoneText, miniMapZoneText,
                         numGroupMembers, maxGroupMembers, difficultyID,
                         status, timeStarted)
@@ -13,6 +13,7 @@ function Activity:Create(name, realm, class, race, level,
     t._et.class = class
     t._et.race = race
     t._et.level = level
+    t._et.itemLevel = itemLevel
     -- location
     t._et.mapAreaID = mapAreaID
     t._et.instanceMapID = instanceMapID
@@ -37,6 +38,7 @@ function Activity:Create(name, realm, class, race, level,
         AddVal(t._et.class)
         AddVal(t._et.race)
         AddVal(t._et.level)
+        AddVal(t._et.itemLevel)
         -- location
         AddVal(t._et.mapAreaID)
         AddVal(t._et.instanceMapID)

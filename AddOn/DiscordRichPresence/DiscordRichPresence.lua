@@ -148,6 +148,8 @@ local function SetStatus(status, groupSize, groupSizeMax, timeStarted)
     local level = UnitLevel("player")
     local _, _, class = UnitClass("player")
     local _, race = UnitRace("player")
+    local itemLevel = GetAverageItemLevel()
+    itemLevel = floor(itemLevel)
     -- location
     local mapAreaID = GetCurrentMapAreaID()
     local _, _, difficultyID, _, _, _, _, instanceMapId = GetInstanceInfo()
@@ -159,7 +161,7 @@ local function SetStatus(status, groupSize, groupSizeMax, timeStarted)
     -- status
     if not status then status = "In Game" end
     if not timeStarted then timeStarted = -1 end
-    local newActivity = Activity:Create(name, realm, class, race, level,
+    local newActivity = Activity:Create(name, realm, class, race, level, itemLevel,
                                   mapAreaID, instanceMapId, zoneText, miniMapZoneText,
                                   groupSize, groupSizeMax, difficultyID,
                                   status, timeStarted)

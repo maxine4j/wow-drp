@@ -11,7 +11,7 @@ from data import large_image_instanceMapID, name_classID, large_image_mapID, lar
 discord_client_id = '429296102727221258'  # Put your Client ID here
 msg_header = "ARW"
 max_msg_len = 900
-
+MAX_LEVEL = 110
 
 # logging
 logger = logging.getLogger('wowdrp')
@@ -68,6 +68,7 @@ def parse_msg(msg):
     data["classID"] = int(ms[i]); i+=1
     data["race"] = ms[i]; i+=1
     data["level"] = int(ms[i]); i+=1
+    data["itemLevel"] = int(float(ms[i])); i+=1
     # location
     data["mapAreaID"] = int(ms[i]); i+=1
     data["instanceMapID"] = int(ms[i]); i+=1
@@ -129,7 +130,10 @@ def format_small_text(data):
         race = "Lightforged Draenei"
     elif race == "HighmountainTauren":
         race = "Highmountain Tauren"
-    return "%d %s %s" % (data["level"], race, name_classID[data["classID"]])
+    level = data["level"]
+    if level == MAX_LEVEL:
+        level = "ilvl " + str(data["itemLevel"])
+    return "%s %s %s" % (str(level), race, name_classID[data["classID"]])
 
 
 def format_small_image(data):
