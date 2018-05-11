@@ -4,5 +4,4 @@
 ## Author: Arwic@Frostmourne-US
 ## Notes: Data gatherer for discord rich presence
 
-Activity.lua
 DiscordRichPresence.lua

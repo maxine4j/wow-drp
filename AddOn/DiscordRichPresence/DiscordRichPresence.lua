@@ -142,30 +142,24 @@ local function SetStatus(status, groupSize, groupSizeMax, timeStarted)
     if UnitIsAFK("player") then
         status = "<Away> " .. status
     end
-    -- basic
-    local name = UnitName("player")
-    local realm = GetRealmName()
-    local level = UnitLevel("player")
-    local _, _, class = UnitClass("player")
-    local _, race = UnitRace("player")
-    local itemLevel = GetAverageItemLevel()
-    itemLevel = floor(itemLevel)
-    -- location
-    local mapAreaID = GetCurrentMapAreaID()
-    local _, _, difficultyID, _, _, _, _, instanceMapId = GetInstanceInfo()
-    local zoneText = GetZoneText()
-    local miniMapZoneText = GetMinimapZoneText()
-    -- group
-    if not groupSize then groupSize = 0 end
-    if not groupSizeMax then groupSizeMax = 0 end
-    -- status
-    if not status then status = "In Game" end
-    if not timeStarted then timeStarted = -1 end
-    local newActivity = Activity:Create(name, realm, class, race, level, itemLevel,
-                                  mapAreaID, instanceMapId, zoneText, miniMapZoneText,
-                                  groupSize, groupSizeMax, difficultyID,
-                                  status, timeStarted)
-    EncodeMessage(newActivity:Serialize())
+    local activity = {
+        UnitName("player"), -- player name
+        GetRealmName(), -- realm name
+        select(3, UnitClass("player")), -- player class
+        select(2, UnitRace("player")), -- player race
+        UnitLevel("player"), -- player level
+        floor(GetAverageItemLevel()), -- player item level
+        GetCurrentMapAreaID(), -- map id
+        select(8, GetInstanceInfo()), -- instance map id
+        GetZoneText(), -- zone text
+        GetMinimapZoneText(), -- minimap text
+        groupSize or 0, -- group size
+        groupSizeMax or 0, -- group size max
+        select(3, GetInstanceInfo()), -- instance difficulty id
+        status or "In Game", -- custom status
+        timeStarted or -1, -- time started
+    }
+    EncodeMessage(table.concat(activity, "|"))
 end
 
 local function UpdateStatus()
@@ -313,6 +307,7 @@ local function UpdateStatus()
         SetStatus(format("In Queue: %s and %s", mapName1, mapName2), groupSize, groupSizeMax, timeStarted)
         return
     end
+    
     -- resting
     if IsResting() then
         SetStatus("In Town")
