@@ -5,44 +5,6 @@ local msgHeader = "ARW"
 local msgFrameCount = floor(maxMsgLen / 3)
 local maxMsgLen = msgFrameCount * 3
 
-local size_difficultyID = {
-    ["0"] = 0,
-    ["1"] = 5,
-    ["2"] = 5,
-    ["3"] = 10,
-    ["4"] = 25,
-    ["5"] = 10,
-    ["6"] = 25,
-    ["7"] = 25,
-    ["8"] = 5,
-    ["9"] = 40,
-    ["10"] = 0,
-    ["11"] = 3,
-    ["12"] = 3,
-    ["13"] = 0,
-    ["14"] = 30,
-    ["15"] = 30,
-    ["16"] = 20,
-    ["17"] = 30,
-    ["18"] = 0,
-    ["19"] = 0,
-    ["20"] = 3,
-    ["21"] = 0,
-    ["22"] = 0,
-    ["23"] = 5,
-    ["24"] = 5,
-    ["25"] = 0,
-    ["26"] = 0,
-    ["27"] = 0,
-    ["28"] = 0,
-    ["29"] = 0,
-    ["30"] = 0,
-    ["31"] = 0,
-    ["32"] = 0,
-    ["33"] = 5,
-    ["34"] = 0,
-}
-
 local activityShortNames = {
     -- legion m+
     ["459"] = "M+ EoA",
@@ -84,7 +46,6 @@ local function Init()
         parentFrame:SetFrameStrata("TOOLTIP")
         parentFrame:SetPoint("TOPLEFT", 0, 0)
         parentFrame:SetPoint("RIGHT", UIParent, "RIGHT")
-        --parentFrame:SetWidth(msgFrameCount)
         parentFrame:SetHeight(1)
         parentFrame.texture = parentFrame:CreateTexture(nil, "BACKGROUND")
         parentFrame.texture:SetColorTexture(0, 0, 0, 1)
@@ -307,7 +268,7 @@ local function UpdateStatus()
         SetStatus(format("In Queue: %s and %s", mapName1, mapName2), groupSize, groupSizeMax, timeStarted)
         return
     end
-    
+
     -- resting
     if IsResting() then
         SetStatus("In Town")
