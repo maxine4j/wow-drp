@@ -157,8 +157,8 @@ def format_party_size(data):
 
 
 def start_drp():
-    rpc = pypresence.Client(discord_client_id)
-    rpc.start()
+    rpc = pypresence.Presence(discord_client_id)
+    rpc.connect()
     last_msg = ""
     while True:  # The presence will stay on as long as the program is running
         try:
@@ -167,7 +167,7 @@ def start_drp():
                 print("Msg: " + msg)
                 last_msg = msg
                 data = parse_msg(msg)
-                rpc.set_activity(state=format_state(data),
+                rpc.update(state=format_state(data),
                                  details=format_details(data),
                                  start=format_start(data),
                                  large_image=format_large_image(data),
