@@ -110,7 +110,7 @@ local function SetStatus(status, groupSize, groupSizeMax, timeStarted)
         select(2, UnitRace("player")), -- player race
         UnitLevel("player"), -- player level
         floor(GetAverageItemLevel()), -- player item level
-        GetCurrentMapAreaID(), -- map id
+        C_Map.GetBestMapForUnit("player"), -- uiMapID
         select(8, GetInstanceInfo()), -- instance map id
         GetZoneText(), -- zone text
         GetMinimapZoneText(), -- minimap text
