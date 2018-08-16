@@ -88,7 +88,11 @@ local function EncodeMessage(msg)
         local c = msg:sub(i, i)
         local hueIndex = floor(i / msgFrameCount) + 1
         local frameIndex = i % msgFrameCount + 1
-        colors[frameIndex][hueIndex] = string.byte(c) / 255
+        -- pad each character with a null character beyond it to allow
+        -- the user to turn on UI scale and "break" pixel-perfect painting.
+        -- the other end will use these nulls to know when it has reached the next block.
+        colors[frameIndex * 2][hueIndex] = string.byte(c) / 255
+        colors[frameIndex * 2 + 1][hueIndex] = 0
     end
     -- set the frames colors
     for i = 1, msgFrameCount do
@@ -110,7 +114,7 @@ local function SetStatus(status, groupSize, groupSizeMax, timeStarted)
         select(2, UnitRace("player")), -- player race
         UnitLevel("player"), -- player level
         floor(GetAverageItemLevel()), -- player item level
-        GetCurrentMapAreaID(), -- map id
+        C_Map.GetBestMapForUnit("player"), -- uiMapID
         select(8, GetInstanceInfo()), -- instance map id
         GetZoneText(), -- zone text
         GetMinimapZoneText(), -- minimap text

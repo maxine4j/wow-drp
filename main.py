@@ -21,22 +21,39 @@ hdlr.setFormatter(formatter)
 logger.addHandler(hdlr)
 logger.setLevel(logging.WARNING)
 
+def iterate_pixels(pixels, channel):
+    line = ""
+    wait_for_null = False
+
+    if channel.lower() == 'r':
+        channel_index = 0
+    elif channel.lower() == 'g':
+        channel_index = 1
+    elif channel.lower() == 'b':
+        channel_index = 2
+    else:
+        raise ValueError("Unknown color channel: {0}".format(channel))
+
+    for p in pixels:
+        channels = p
+        character_ordinal = channels[channel_index]
+        if character_ordinal == 0:
+            # We've reached a null separator; look for a character again
+            wait_for_null = False
+        elif wait_for_null is False:
+            # Cool, this is a character. Due to UI Scale, this character may repeat immediately
+            # afterwards. Thus, wait for a null separator before continuing to parse.
+            line += chr(character_ordinal)
+            wait_for_null = True
+
+    return line
 
 # reads message character by character using all 3 color channels
 def parse_pixels(pixels):
     msg = ""
-    for p in pixels:
-        r, g, b = p
-        if r != 0:
-            msg += chr(r)
-    for p in pixels:
-        r, g, b = p
-        if g != 0:
-            msg += chr(g)
-    for p in pixels:
-        r, g, b = p
-        if b != 0:
-            msg += chr(b)
+    msg += iterate_pixels(pixels, 'r')
+    msg += iterate_pixels(pixels, 'g')
+    msg += iterate_pixels(pixels, 'b')
     logger.info("Raw message: %s" % (msg,))
     return msg
 
@@ -51,11 +68,12 @@ def read_screen():
 def get_msg():
     px = read_screen()
     msg = parse_pixels(px)
-    if msg[:3] != msg_header:
+    if msg[:3] == msg_header:
+        logger.info("Message is valid")
+        return msg[3:]
+    else:
         logger.info("Message is junk")
         return None
-    logger.info("Message is valid")
-    return msg[3:]
 
 
 def parse_msg(msg):
@@ -157,8 +175,8 @@ def format_party_size(data):
 
 
 def start_drp():
-    rpc = pypresence.Client(discord_client_id)
-    rpc.start()
+    rpc = pypresence.Presence(discord_client_id)
+    rpc.connect()
     last_msg = ""
     while True:  # The presence will stay on as long as the program is running
         try:
@@ -167,7 +185,7 @@ def start_drp():
                 print("Msg: " + msg)
                 last_msg = msg
                 data = parse_msg(msg)
-                rpc.set_activity(state=format_state(data),
+                rpc.update(state=format_state(data),
                                  details=format_details(data),
                                  start=format_start(data),
                                  large_image=format_large_image(data),

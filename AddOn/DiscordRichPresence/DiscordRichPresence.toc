@@ -1,6 +1,6 @@
-## Interface: 70300
+## Interface: 80000
 ## Title: Discord Rich Presence
-## Version: v1.0.0
+## Version: v1.0.1
 ## Author: Arwic@Frostmourne-US
 ## Notes: Data gatherer for discord rich presence
 
