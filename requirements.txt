@@ -1,2 +1,2 @@
-Pillow==6.2.0
+Pillow==7.1.0
 pypresence==1.0.9
